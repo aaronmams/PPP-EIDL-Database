@@ -1,0 +1,20 @@
+---
+title: "README"
+author: "Aaron Mamula"
+date: "3/4/2021"
+output: html_document
+---
+
+This is a code repository containing mostly R code that I used to manage a cloud MySQL database containing public data from the Paycheck Protection Program and Economic Injury Disaster Loan Programs. 
+
+Information about these programs can be obtained here:
+
+[https://www.sba.gov/funding-programs/loans/coronavirus-relief-options/paycheck-protection-program/ppp-data#section-header-2](https://www.sba.gov/funding-programs/loans/coronavirus-relief-options/paycheck-protection-program/ppp-data#section-header-2)
+
+The organization of this project is as follows:
+
+1. I downloaded all of the PPP and EIDL data (they are publicly available in zip files from the link provided above)
+2. I created a Google Cloud Project and configured a cloud MySQL Database for the project
+2. I developed some R routines to clean and standardize the data
+3. Using R's ```DBI``` library I pushed these data to the cloud MySQL Database
+
