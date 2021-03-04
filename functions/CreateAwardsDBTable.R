@@ -24,7 +24,7 @@ return(awards)
 
 create.eidlawards.DBtable <- function(eidl.data){
   award.fields <- c('ACTIONDATE','FAIN','BorrowerName','eidlBorrowerID','FEDERALACTIONOBLIGATION',
-                    'NONFEDERALFUNDINGAMOUNT','eidlAwardsID')
+                    'NONFEDERALFUNDINGAMOUNT','eidlAwardID')
   awards <- eidl.data %>% select_(.dots=award.fields)
 }
 

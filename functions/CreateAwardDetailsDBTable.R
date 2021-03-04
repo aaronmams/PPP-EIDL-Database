@@ -41,7 +41,7 @@ create.eidlaward.details.DBtable <- function(eidl.data){
                             "PRIMPLACEOFPERFORMANCEZIP.4","PRIMPLACEOFPERFORMANCEFOREIGNLOCATIONDESC",
                             "PRIMPLACEOFPERFORMANCECONGRESSIONALDISTRICT","AWARDDESC","PERIODOFPERFORMANCESTARTDATE",
                             "PERIODOFPERFORMANCECURRENTENDDATE","FACEVALUEOFDIRECTLOANORLOANGUARANTEE",
-                            "ORIGINALLOANSUBSIDYCOST","BUSINESSFUNDSINDICATOR")
+                            "ORIGINALLOANSUBSIDYCOST","BUSINESSFUNDSINDICATOR","eidlAwardID")
   award.details <- eidl.data %>% select_(.dots=award.details.fields)
   
 }

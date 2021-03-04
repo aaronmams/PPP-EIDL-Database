@@ -144,7 +144,6 @@ source(here("functions/CreateEntityID.R"))
 source(here("functions/CreateAwardsDBTable.R"))
 source(here("functions/CreateEntityDetailsDBTable.R"))
 source(here("functions/CreateAwardDetailsDBTable.R"))
-source(here("functions/GCP-SBA-connect.R"))
 
 
 ppp.df <- ppp.data.read()
@@ -184,12 +183,5 @@ eidl.entity.details.table <- create.eidlentity.details.DBtable(eidl.data=eidl.df
 #create "award details" table
 pppaward.details.table <- create.pppaward.details.DBtable(ppp.data=ppp.df)
 eidlaward.details.table <- create.eidlaward.details.DBtable(eidl.data=eidl.df)
-
-# just testing out the DB write table with these large data
-t <- Sys.time()
-dbWriteTable(cn,"ppp_awards",awards.table[1:100000,],overwrite=F,append=T)
-Sys.time() - t
-
-
 
 
