@@ -1,0 +1,192 @@
+---
+title: "R With Google Cloud"
+author: "Aaron Mamula"
+date: "2/22/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# {.tabset .tabset-pills}
+
+## Purpose
+
+1. Use R to write data from a set of .csv files to a Cloud MysQL Database running on Google's Cloud
+2. Read data into R workspace from the cloud DB
+
+## Need
+
+This section is organized around two questions I imagine you might have for me:
+
+Q1. why would one want to do this?
+
+> Databases can be really useful for collaborative work as they can ensure that researchers from different labs are accessing the same data. Google Clould DBs are easy to set up and easy to get others connected to.  
+
+Q2. assuming one has decided to do this, why do it this way (use R to munge the data and MySQL/Google to Warehouse it)? 
+
+> I'm not claiming this is the best way...but I like using R and I don't really know to do a lot of this stuff anyother way. So it feels pretty natural to me to use R to clean the data. And as long as I'm using R to clean the data before the DB upload, I might as well use R to do the actual DB write task as well.
+
+## Summary of Steps
+
+Here I summarize the basic steps I followed to create this exercise. I've also included my subjective estimate of the time required to replicate these steps.
+
+1. get data from the web (10-15 minutes)
+2. set up a Google Cloud Project and connect R to this project (30 mins)
+3. use R to clean/manipulate the raw data (10-20 mins)
+4. push the cleaned data to the Project Database ( < 5 mins)
+5. query the cloud DB to bring some data into an R workspace ( < 5 mins)
+
+Importantly, Step 2 (setting up a Google Cloud Project) could potentially take closer to an hour if you decide to watch my YouTube series on setting up a Cloud MySQL DB in GCP. In this case one could reasonably plan for 25 mins to watch the YouTube videos and maybe another 20-30 mins to set up a project.  
+
+```{r, echo=FALSE, out.width="200%", fig.cap="A nice image."}
+library(here)
+knitr::include_graphics(here('Entity-Relationship-Diagram.png'))
+```
+
+## Step-by-Step {.tabset .tabset-pills}
+
+### Step 1
+
+The data for this exercise are available for download from the Small Business Administration. The download page is here:
+
+[https://www.sba.gov/funding-programs/loans/coronavirus-relief-options/paycheck-protection-program/ppp-data#section-header-2](https://www.sba.gov/funding-programs/loans/coronavirus-relief-options/paycheck-protection-program/ppp-data#section-header-2)
+
+A few headers down from the top of the page there is an "All Data" section with a link to download all data.
+
+The data come from 2 separate programs designed to provide financial assistance to small businesses adversely impacted by the Covid-19 Pandemic:
+
+1. The Economic Injury Disaster Loan (EIDL) program granted low interest (subsidized) loans to small business for general financial relief.
+
+2. The Paycheck Protection Program (PPP) - provided money to small businesses in order to continue paying employees during times when businesses were unable to operate at full capacity because of Covid-related restrictions.
+
+
+### Step 2
+
+In this step we will set up a Google Cloud Project and configure the cloud MySQL Database Instance that will be used to warehouse the SBA data we gathered in Step 1. Setting up a GCP Project and adding a MySQL DB Instance to the project is not difficult but illustrating this process for those who may not have prior experience with Google's Cloud Offering is pretty tedious. For this reason I have recorded a set of videos that walk through how to set up the Google Cloud Project for this exercise. The videos have been bundled into a playlist that is publicly available on YouTube:
+
+[https://youtube.com/playlist?list=PLJI4SWhcIx2iQkU2h2D6Qx78yXlOixrrc](https://youtube.com/playlist?list=PLJI4SWhcIx2iQkU2h2D6Qx78yXlOixrrc)
+
+One thing to note here is that the SBA made some changes to their data organization since I recorded this. So the video on harvesting source data from the SBA website is a little outdated.
+
+### Step 3
+
+In this step I use R to clean and organize the source data. This step prepares the source data for upload to the database. This step involves the following sub-tasks:
+
+1. read-in the source data from a collection of .csv files
+2. clean and standardize all text fields (trim leading and trailing whitespace and convert strings to all uppercase)
+3. modify the Borrower Name from the EIDL data
+4. create a unique "entity identifier" separately for the PPP and EIDL data
+5. create a unique "award identifier" separately for the PPP and EIDL data
+6. create an "awards" table containing the basic information for each PPP and EIDL loan
+7. create an "award details" table containing detailed information for each PPP and EIDL loan
+8. create an "entity details" table to store detailed information about each borrower
+
+Each of these steps is implemented as a function. The functions are called sequentially in order to create the tables that will be written to the database. This setup helps keeps the code required to create our Database Tables pretty minimal:
+
+```{r eval=F}
+library(here)
+source(here("functions/PPPSourceDataRead.R"))
+source(here("functions/EIDLSourceDataRead.R"))
+source(here("functions/StandTextFields.R"))
+source(here("functions/CreateEntityID.R"))
+source(here("functions/CreateAwardsDBTable.R"))
+source(here("functions/CreateEntityDetailsDBTable.R"))
+source(here("functions/CreateAwardDetailsDBTable.R"))
+source(here("functions/GCP-SBA-connect.R"))
+
+
+ppp.df <- ppp.data.read()
+eidl.df <- eidl.data.read()
+
+
+# clean the text fields in source data (trim all leading and trailing whitespace + standardize values to all-caps)
+ppp.df <- stand.text.fields(dataframe=ppp.df)
+eidl.df <- stand.text.fields(dataframe=eidl.df)
+
+#rename columns in EIDL to make them compatable with PPP column names
+eidl.df <- eidl.df %>% mutate(BorrowerName=AWARDEEORRECIPIENTLEGALENTITYNAMEANDDOINGBUSINESSAS,
+                              BorrowerAddress=LEGALENTITYADDRLINE1,
+                              BorrowerCity=LEGALENTITYCITYNAME)
+
+#fix the borrower names in the EIDL Data.
+eidl.df <- eidl.df %>% mutate(BorrowerName=trimws(str_replace(BorrowerName,"DBA.*","")))
+
+# create a unique "entity ID"
+t <- Sys.time()
+ppp.df <- create.ppp.entityID(ppp.data=ppp.df)
+eidl.df <- create.eidl.entityID(eidl.data=eidl.df)
+Sys.time() - t
+
+# create an "award ID" for the eidl data
+eidl.df <- eidl.df %>% mutate(eidlAwardID=paste(eidlBorrowerID,"_",ACTIONDATE,sep=""))
+
+#create the "ppp_awards" table
+ppp.awards.table <- create.pppawards.DBtable(ppp.data=ppp.df)
+eidl.awards.table <- create.eidlawards.DBtable(eidl.data=eidl.df)
+
+# create the "entity details" table
+ppp.entity.details.table <- create.pppentity.details.DBtable(ppp.data=ppp.df)
+eidl.entity.details.table <- create.eidlentity.details.DBtable(eidl.data=eidl.df)
+  
+#create "award details" table
+pppaward.details.table <- create.pppaward.details.DBtable(ppp.data=ppp.df)
+eidlaward.details.table <- create.eidlaward.details.DBtable(eidl.data=eidl.df)
+```
+
+
+### Step 4
+
+In Step 4 we upload the tables created in the previous section to our cloud database. To keep my connection details private, I wrote a function to establish a connection to the database and .gitigored that particular function document.
+
+```{r}
+source(here('functions/GCP-SBA-connect.R'))
+
+```
+
+Writing these data frames to the DB as tables is pretty simple.  For illustrative purposes I'm going to show the existing tables first:
+
+```{r}
+dbGetQuery(cn,"show tables")
+```
+
+```{r, eval=F}
+# if the table already exists on the database we can use dbWriteTable with the overwrite option set to F
+dbWriteTable(cn,"ppp_awards",ppp.awards.table,overwrite=FALSE,append=TRUE)
+
+```
+
+If we are creating a new database table from an R data frame we can use ```dbWriteTable()``` without an options specified:
+
+```{r eval=F}
+#dbWriteTable(cn,"eidl_awards",eidl.awards.table,overwrite=TRUE)
+```
+
+### Step 5
+
+Step 5, technically, is a repeat of Step 4. Once the database connection has been established there isn't much practical difference between writing to the DB (Step 4) or reading from the DB. It's just a different SQL syntax that gets passed. 
+
+To make this somewhat entertaining and at least a little relevant, I'm going to use a DB query to get entries from the PPP and EIDL tables that contain references to the word fish.
+
+```{r}
+fish.stuff <- dbGetQuery(cn,"select BorrowerName, InitialApprovalAmount, JobsReported from ppp_awards where BorrowerName like '%fish%'")
+knitr::kable(fish.stuff)
+dbDisconnect(cn)
+```
+
+
+## Challenges:
+
+1. The EIDL Data have what looks to be a unique "entity identifier" while the PPP Data do not. Resolving unique entities or businesses across these data sets is a challenge. Example, the following are recorded in the EIDL Data as seperate entities:
+
+* HAIR N NOW DBA BEAUTY SALOON
+* HAIR N NOW DBA SENGA THOMSON AT HAIR N NOW
+
+these entities have the same address but could possibly be two different businesses. I gather that it is common for hairstylists to be considered independent businesses even when they operate out of a hair salon. In such cases, it is entirely possible to have multiple unique businesses operating out of the same physical address.  
+
+At this point it's pretty clear that if I want to match entities between the PPP and EIDL data, it will probably require a rather involved entity resolution algorithm. I'm not sure if it's better the implement that algorithm before I push data to the DB or if it's better to just shove as much raw data into the DB as possible and let users deal with resolving entities on the "back-end."
+
+
+
