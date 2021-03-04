@@ -12,16 +12,12 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # {.tabset .tabset-pills}
 
-## Purpose
+## Purpose & Need
 
 1. Use R to write data from a set of .csv files to a Cloud MysQL Database running on Google's Cloud
 2. Read data into R workspace from the cloud DB
 
-## Need
-
-This section is organized around two questions I imagine you might have for me:
-
-Q1. why would one want to do this?
+Q1. why would one want to do this (create a cloud DB from .csv files)?
 
 > Databases can be really useful for collaborative work as they can ensure that researchers from different labs are accessing the same data. Google Clould DBs are easy to set up and easy to get others connected to.  
 
@@ -41,10 +37,26 @@ Here I summarize the basic steps I followed to create this exercise. I've also i
 
 Importantly, Step 2 (setting up a Google Cloud Project) could potentially take closer to an hour if you decide to watch my YouTube series on setting up a Cloud MySQL DB in GCP. In this case one could reasonably plan for 25 mins to watch the YouTube videos and maybe another 20-30 mins to set up a project.  
 
-```{r, echo=FALSE, out.width="200%", fig.cap="A nice image."}
+## DB-ERD
+
+This is the Entity Relationship Diagram I had in my head when I started organizing these data:
+
+```{r, echo=FALSE, out.width="200%", fig.cap="PPP-EIDL ERD"}
 library(here)
-knitr::include_graphics(here('Entity-Relationship-Diagram.png'))
+knitr::include_graphics(here('figures/Entity-Relationship-Diagram.png'))
 ```
+
+Please note, this graphic does not depict the current structure of the database. I have not yet figured out how to resolve business identities between the PPP and EIDL data so my current database includes a "Entity Details" table for each source data program (EIDL and PPP)
+
+## R Schematic
+
+This picture is pretty remedial but it just illustrates that the code base for this project is organized into a very lean main script with only a couple lines of code. The first of those lines execute a script that calls to multiple functions which read in source data, clean and standardize source data, then organize source data into a variety of R data frames. The 2nd line in our main script takes the R dataframes and uses a the function ```ppp_eidlDBWrite()``` to push them up to the Google Cloud Database.
+
+```{r, echo=FALSE, out.width="200%", fig.cap="R Code Organization"}
+library(here)
+knitr::include_graphics(here('figures/R-schematic.png'))
+```
+
 
 ## Step-by-Step {.tabset .tabset-pills}
 
@@ -171,8 +183,9 @@ Step 5, technically, is a repeat of Step 4. Once the database connection has bee
 To make this somewhat entertaining and at least a little relevant, I'm going to use a DB query to get entries from the PPP and EIDL tables that contain references to the word fish.
 
 ```{r}
+library(dplyr)
 fish.stuff <- dbGetQuery(cn,"select BorrowerName, InitialApprovalAmount, JobsReported from ppp_awards where BorrowerName like '%fish%'")
-knitr::kable(fish.stuff)
+knitr::kable(fish.stuff %>% filter(row_number() < 25))
 dbDisconnect(cn)
 ```
 
