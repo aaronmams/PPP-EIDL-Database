@@ -149,6 +149,25 @@ eidlaward.details.table <- create.eidlaward.details.DBtable(eidl.data=eidl.df)
 ```
 
 
+One thing I would like to mention about cleaning the data: Initially, I was running into problems with non-standard characters (non-ASCII and non-UTF8) from the source data preventing me from writing data to the database. I had some additional code that used ```tools::showNonASCII()```, ```gsub()```, and ```textclean::replace_non_ascii()```.
+
+```{r}
+test1 <- read.csv('C:/Users/aaron.mamula/Desktop/R-Projects/PPP-EIDL-Analysis/source-data/EIDLLoans1.csv',encoding="UTF-8")
+tools::showNonASCII(test1$LegalEntityCityName)
+```
+
+
+```{r}
+teststring <- test1$LegalEntityCityName
+#teststring<- gsub("[^[:alnum:][:blank:][:punct:]?&/\\-]", "", teststring)
+teststring<- gsub("[^[:alnum:][:blank:][:punct:]]", "", teststring)
+tools::showNonASCII(teststring)
+```
+```{r}
+teststring2 <- textclean::replace_non_ascii(teststring,"",remove.nonconverted=T)
+tools::showNonASCII(teststring2)
+teststring2[805551]
+```
 ### Step 4
 
 In Step 4 we upload the tables created in the previous section to our cloud database. To keep my connection details private, I wrote a function to establish a connection to the database and .gitigored that particular function document.

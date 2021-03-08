@@ -14,12 +14,12 @@ ppp_eidlDBWrite <- function(){
 # just testing out the DB write table with these large data
 t <- Sys.time()
 #dbWriteTable(cn,"ppp_awards",awards.table[1:100000,],overwrite=F,append=T)
-dbWriteTable(cn, "ppp_awards",ppp.awards.table[1:500000,],overwrite=T)
+dbWriteTable(cn, "ppp_awards",ppp.awards.table,overwrite=T)
 Sys.time() - t
 
 t <- Sys.time()
-dbWriteTable(cn,"eidl_awards",eidl.awards.table[1:500000,],overwrite=F,append=T)
+dbWriteTable(cn,"eidl_awards",eidl.awards.table,overwrite=T)
 Sys.time() - t
 
-dbWriteTable(cn,"eidl_entity_details",eidl.entity.details.table[1:500000,],overwrite=F,append=T)
+dbWriteTable(cn,"eidl_entity_details",eidl.entity.details.table,overwrite=T)
 }
